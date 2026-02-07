@@ -707,6 +707,11 @@
                             <option value="synth_pulse">Synth: Pulse Drone</option>
                             <option value="synth_metalchime">Synth: Metal Chime</option>
                             <option value="synth_synthstab">Synth: Synth Stab</option>
+                            <option value="synth_heavy_industrial">Synth: Heavy Industrial</option>
+                            <option value="synth_cosmic_void">Synth: Cosmic Void</option>
+                            <option value="synth_emergency_broadcast">Synth: Emergency Broadcast</option>
+                            <option value="synth_cyber_alert">Synth: Cyber Alert</option>
+                            <option value="synth_data_stream">Synth: Data Stream</option>
                             <option value="custom">Custom Upload...</option>
                         </select>
                         <button type="button" id="preview-sound-btn" class="btn-reset preview-btn"
@@ -993,71 +998,79 @@
 
             /**
              * Calculates the next JS Date object for an alarm trigger.
+             * @param {boolean} includeGracePeriod - If true, returns a time up to 60s in the past (active window).
              */
-            getNextTrigger(alarm) {
+            getNextTrigger(alarm, includeGracePeriod = false) {
                 if (!alarm.active) return null;
 
                 // Priority: Snooze
                 if (alarm.snoozeUntil) {
                     if (alarm.snoozeUntil > Date.now()) {
                         return new Date(alarm.snoozeUntil);
-                    } else {
-                        // Snooze execution time passed or executing now; 
-                        // Logic below should pick normal schedule if we just cleared it, 
-                        // but effectively `checkAlarms` handles the trigger.
                     }
+                    // If snooze passed, fall through to normal schedule
                 }
 
                 const now = new Date();
                 let next = new Date();
+                const GRACE_MS = includeGracePeriod ? 60000 : 0; // 60s lookback
 
                 if (alarm.type === 'fixed') {
                     // HH:MM 24h format
                     const [h, m] = alarm.time.split(':').map(Number);
                     next.setHours(h, m, 0, 0);
-                    if (next <= now) next.setDate(next.getDate() + 1);
+                    // If next is older than (now - grace), push to tomorrow.
+                    // If next is 14:00 and now is 14:00:05, diff is -5s.
+                    // 14:00 <= 14:00:05 - 60s (13:59:05) -> FALSE. Stays 14:00.
+                    if (next <= (now.getTime() - GRACE_MS)) {
+                        next.setDate(next.getDate() + 1);
+                    }
                 }
                 else if (alarm.type === 'interval') {
-                    // For interval, we need a reference point. 
-                    // In a robust app, we'd store 'lastTriggered'. 
-                    // Simplified: align to next X minutes from "00:00" today? 
-                    // Or better: from 'created' timestamp. Let's use 'created' or 'lastTrigger'.
+                    // Base calculation
                     const base = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(alarm.created);
                     const intervalMs = alarm.intervalMins * 60 * 1000;
-
-                    // Add intervals until we are in future
+                    
+                    // Add intervals
                     let candidate = base.getTime();
-                    while (candidate <= now.getTime()) {
+                    // If including grace period, we want the LAST interval that is either future or within grace
+                    const threshold = now.getTime() - GRACE_MS;
+                    
+                    while (candidate <= threshold) {
                         candidate += intervalMs;
                     }
                     next = new Date(candidate);
                 }
                 else if (alarm.type === 'weekly') {
-                    // days: [1, 3, 5] (Mon, Wed, Fri)
+                    // ... (Simplification: applying similar grace logic to weekly is complex, 
+                    // relying on standard lookahead but checking 'now' carefully)
+                    
                     const [h, m] = alarm.time.split(':').map(Number);
                     next.setHours(h, m, 0, 0);
 
-                    // Find next valid day
-                    // Day 0 = Sun, 1 = Mon...
                     let safeGuard = 0;
-                    while (safeGuard < 14) { // Max 2 weeks lookahead
-                        const day = next.getDay(); // 0-6
-                        const dayMapped = day === 0 ? 7 : day; // Make Sun 7 if using 1-7, or just match UI 
-                        // UI inputs: 1=Mon ... 5=Fri. Date.getDay(): 0=Sun, 1=Mon.
-                        // Let's normalize to UI (1=Mon ... 5=Fri ... 7=Sun)
+                    while (safeGuard < 14) { 
+                        const day = next.getDay(); 
                         const uiDay = day === 0 ? 7 : day;
 
-                        if (alarm.days.includes(uiDay.toString()) && next > now) {
+                        // Check match. 
+                        // If includeGracePeriod, we allow 'next' to be slightly in past
+                        const isPastGrace = next <= (now.getTime() - GRACE_MS);
+
+                        if (alarm.days.includes(uiDay.toString()) && !isPastGrace) {
                             break;
                         }
                         next.setDate(next.getDate() + 1);
-                        next.setHours(h, m, 0, 0); // Reset time part after day increment
+                        next.setHours(h, m, 0, 0); 
                         safeGuard++;
                     }
                 }
+                // ... (Cyclic and Annual omitted for brevity, logic follows similar pattern of 'next > now - grace')
                 else if (alarm.type === 'cyclic') {
-                    const cycleStart = new Date(alarm.cycleStart);
-                    cycleStart.setHours(0, 0, 0, 0); // Normalize to start of day
+                     // Simplified reuse of existing logic but respecting grace implicitly by returning start of day
+                     // If start of day is > 24h ago, logic below handles it.
+                     const cycleStart = new Date(alarm.cycleStart);
+                    cycleStart.setHours(0, 0, 0, 0); 
 
                     const totalCycleDays = alarm.cycleWork + alarm.cycleRest;
                     const diffDays = Math.floor((now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
@@ -1065,15 +1078,24 @@
 
                     let daysToAdd = 0;
                     if (cyclePosition < alarm.cycleWork) {
-                        // Currently in work phase, next trigger is tomorrow
-                        daysToAdd = 1;
+                         // Work day. Trigger is today at 00:00 (or whatever time? Spec says fixed Daily Time?)
+                         // The original code set Hours to 0,0,0,0. This implies cyclic alarms are just "Event Days" without time?
+                         // Assuming they just mark the day active. But when do they ring?
+                         // Original code: `next.setHours(0, 0, 0, 0);`
+                         // Logic implies it triggers at midnight? Or just active?
+                         // Let's assume user wants it at a specific time, but UI doesn't have time input for cyclic?
+                         // Inspecting UI: cyclic only has work/rest/start. No time.
+                         // So it triggers at 00:00?
+                         daysToAdd = 0; // Trigger today
                     } else {
-                        // Currently in rest phase, next trigger is at start of next work phase
                         daysToAdd = totalCycleDays - cyclePosition;
                     }
-
+                    
                     next.setDate(now.getDate() + daysToAdd);
-                    next.setHours(0, 0, 0, 0); // Trigger at start of day
+                    next.setHours(0, 0, 0, 0);
+                    
+                    // If today 00:00 is passed by > grace, push to tomorrow? 
+                    // Cyclic logic is vague in original. Leaving as is but applying threshold check in checkAlarms.
                 }
                 else if (alarm.type === 'annual') {
                     const [year, month, day] = alarm.annualDate.split('-').map(Number);
@@ -1082,7 +1104,7 @@
                     next.setFullYear(now.getFullYear(), month - 1, day);
                     next.setHours(h, m, 0, 0);
 
-                    if (next <= now) {
+                    if (next <= (now.getTime() - GRACE_MS)) {
                         next.setFullYear(now.getFullYear() + 1);
                     }
                 }
@@ -1093,12 +1115,23 @@
             checkAlarms() {
                 this.alarms.forEach(alarm => {
                     if (!alarm.active) return;
-                    const next = this.getNextTrigger(alarm);
-                    if (next && Math.abs(next.getTime() - this.now.getTime()) < 1500) { // 1.5s tolerance
-                        // Debounce: ensure we haven't triggered this minute already
-                        const last = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(0);
-                        if (this.now.getTime() - last.getTime() > 60000) {
-                            this.trigger(alarm);
+                    
+                    // Use grace period of 60s to find "current" trigger
+                    const next = this.getNextTrigger(alarm, true);
+                    
+                    if (next) {
+                        const diff = this.now.getTime() - next.getTime();
+                        // Trigger if:
+                        // 1. Time has passed (diff >= 0)
+                        // 2. But not too long ago (diff < 60000) - i.e. within the last minute
+                        // 3. AND we haven't triggered it yet (check lastTrigger)
+                        
+                        if (diff >= 0 && diff < 60000) {
+                             const last = alarm.lastTrigger ? new Date(alarm.lastTrigger).getTime() : 0;
+                             // Ensure last trigger wasn't within 2 mins (debouncing) or wasn't this specific instance
+                             if (this.now.getTime() - last > 65000) {
+                                 this.trigger(alarm);
+                             }
                         }
                     }
                 });
@@ -1438,10 +1471,17 @@
                 if (this.previewTimeout) { clearTimeout(this.previewTimeout); this.previewTimeout = null; }
             }
 
-            play(type, loop = true) {
+            async play(type, loop = true) {
                 this.init();
                 this.stop();
-                if (this.ctx.state === 'suspended') this.ctx.resume();
+                
+                try {
+                    if (this.ctx.state === 'suspended') {
+                        await this.ctx.resume();
+                    }
+                } catch (e) {
+                    console.error("Audio Context Resume Failed:", e);
+                }
 
                 const soundMap = {
                     'cyberpunk': () => this.playCyberpunk(loop),
@@ -1453,7 +1493,12 @@
                     'chiptune': () => this.playChiptune(loop),
                     'pulse': () => this.playPulse(loop),
                     'metalchime': () => this.playMetalChime(loop),
-                    'synthstab': () => this.playSynthStab(loop)
+                    'synthstab': () => this.playSynthStab(loop),
+                    'heavy_industrial': () => this.playHeavyIndustrial(loop),
+                    'cosmic_void': () => this.playCosmicVoid(loop),
+                    'emergency_broadcast': () => this.playEmergencyBroadcast(loop),
+                    'cyber_alert': () => this.playCyberAlert(loop),
+                    'data_stream': () => this.playDataStream(loop)
                 };
 
                 const playFn = soundMap[type] || (() => this.playBeeps(loop));
@@ -1664,6 +1709,96 @@
                     setTimeout(playStab, 100);
                     setTimeout(playStab, 200);
                 }, 1500);
+            }
+
+            playHeavyIndustrial(loop) {
+                const playThump = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(60, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(30, this.ctx.currentTime + 0.4);
+                    gain.gain.setValueAtTime(0.6, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.4);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.4);
+                };
+                playThump();
+                if (loop) this.interval = setInterval(playThump, 600);
+            }
+
+            playCosmicVoid(loop) {
+                const playSweep = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(1200, this.ctx.currentTime + 2);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.3, this.ctx.currentTime + 1);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 2);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 2);
+                };
+                playSweep();
+                if (loop) this.interval = setInterval(playSweep, 2500);
+            }
+
+            playEmergencyBroadcast(loop) {
+                const playTone = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                    // Two-tone alternate
+                    const { osc: osc2, gain: gain2 } = this.createOscGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1100, this.ctx.currentTime);
+                    
+                    gain.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain2.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    
+                    osc.start();
+                    osc2.start();
+                    osc.stop(this.ctx.currentTime + 1);
+                    osc2.stop(this.ctx.currentTime + 1);
+                };
+                playTone();
+                if (loop) this.interval = setInterval(playTone, 1500);
+            }
+
+            playCyberAlert(loop) {
+                const playAlert = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(2000, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(100, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.1);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                };
+                playAlert();
+                if (loop) {
+                    this.interval = setInterval(() => {
+                        playAlert();
+                        setTimeout(playAlert, 150);
+                    }, 800);
+                }
+            }
+
+            playDataStream(loop) {
+                const playBlip = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(Math.random() * 2000 + 500, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.1, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 0.05);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.05);
+                };
+                if (loop) {
+                    this.interval = setInterval(playBlip, 100);
+                } else {
+                    for(let i=0; i<5; i++) setTimeout(playBlip, i*100);
+                }
             }
         }
 

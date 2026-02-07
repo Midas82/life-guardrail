@@ -3,7 +3,7 @@
  * Enables offline functionality for PWA installation
  */
 
-const CACHE_NAME = 'life-guardrail-v2';
+const CACHE_NAME = 'life-guardrail-v4';
 const ASSETS_TO_CACHE = [
     './',
     './index.html',
