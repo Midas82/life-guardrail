@@ -712,6 +712,11 @@
                             <option value="synth_emergency_broadcast">Synth: Emergency Broadcast</option>
                             <option value="synth_cyber_alert">Synth: Cyber Alert</option>
                             <option value="synth_data_stream">Synth: Data Stream</option>
+                            <option value="synth_air_raid">⚠️ Air Raid Siren</option>
+                            <option value="synth_ships_bell">⚓ Ship's Bell</option>
+                            <option value="synth_police_klaxon">🚨 Police Klaxon</option>
+                            <option value="synth_tornado">🌪️ Tornado Warning</option>
+                            <option value="synth_nuclear">☢️ Nuclear Alert</option>
                             <option value="custom">Custom Upload...</option>
                         </select>
                         <button type="button" id="preview-sound-btn" class="btn-reset preview-btn"
@@ -940,17 +945,18 @@
                 this.render();
                 this.tick();
 
-                // Request notification permission on first interaction
+                // CRITICAL FIX: Request notification permission immediately on load
+                setTimeout(() => this.reliability.requestNotificationPermission(), 500);
+
+                // Unlock Audio for Mobile on first interaction (required by browser policy)
                 ['click', 'touchstart', 'keydown'].forEach(evt => {
                     document.addEventListener(evt, () => {
-                                        // Unlock Audio for Mobile
-                                        if (app.synth) {
-                                            if (!app.synth.ctx) app.synth.init();
-                                            if (app.synth.ctx.state === 'suspended') {
-                                                app.synth.ctx.resume();
-                                            }
-                                        }                        // Request notification permission
-                        this.reliability.requestNotificationPermission();
+                        if (app.synth) {
+                            if (!app.synth.ctx) app.synth.init();
+                            if (app.synth.ctx.state === 'suspended') {
+                                app.synth.ctx.resume();
+                            }
+                        }
                     }, { once: true });
                 });
 
@@ -1498,7 +1504,12 @@
                     'cosmic_void': () => this.playCosmicVoid(loop),
                     'emergency_broadcast': () => this.playEmergencyBroadcast(loop),
                     'cyber_alert': () => this.playCyberAlert(loop),
-                    'data_stream': () => this.playDataStream(loop)
+                    'data_stream': () => this.playDataStream(loop),
+                    'air_raid': () => this.playAirRaid(loop),
+                    'ships_bell': () => this.playShipsBell(loop),
+                    'police_klaxon': () => this.playPoliceKlaxon(loop),
+                    'tornado': () => this.playTornado(loop),
+                    'nuclear': () => this.playNuclear(loop)
                 };
 
                 const playFn = soundMap[type] || (() => this.playBeeps(loop));
@@ -1799,6 +1810,104 @@
                 } else {
                     for(let i=0; i<5; i++) setTimeout(playBlip, i*100);
                 }
+            }
+
+            // === PREMIUM ALARM SOUNDS ===
+
+            playAirRaid(loop) {
+                const playSiren = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(400, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(800, this.ctx.currentTime + 1.5);
+                    osc.frequency.linearRampToValueAtTime(400, this.ctx.currentTime + 3);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.4, this.ctx.currentTime + 3);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 3);
+                };
+                playSiren();
+                if (loop) this.interval = setInterval(playSiren, 3000);
+            }
+
+            playShipsBell(loop) {
+                const playBell = () => {
+                    // Metallic bell with overtones
+                    const freqs = [880, 1320, 1760];
+                    freqs.forEach((freq, i) => {
+                        const { osc, gain } = this.createOscGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                        gain.gain.setValueAtTime(0.3 / (i + 1), this.ctx.currentTime);
+                        gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 2);
+                        osc.start();
+                        osc.stop(this.ctx.currentTime + 2);
+                    });
+                };
+                playBell();
+                if (loop) this.interval = setInterval(playBell, 3000);
+            }
+
+            playPoliceKlaxon(loop) {
+                const playKlax = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    // Fast alternating two-tone
+                    const times = [0, 0.4, 0.8, 1.2];
+                    const freqs = [650, 500, 650, 500];
+                    times.forEach((t, i) => {
+                        osc.frequency.setValueAtTime(freqs[i], this.ctx.currentTime + t);
+                    });
+                    gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 1.6);
+                };
+                playKlax();
+                if (loop) this.interval = setInterval(playKlax, 1600);
+            }
+
+            playTornado(loop) {
+                const playWarning = () => {
+                    // Three-tone EAS warning
+                    const tones = [853, 960, 1050];
+                    tones.forEach((freq, i) => {
+                        setTimeout(() => {
+                            const { osc, gain } = this.createOscGain();
+                            osc.type = 'sine';
+                            osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                            gain.gain.setValueAtTime(0.25, this.ctx.currentTime);
+                            osc.start();
+                            osc.stop(this.ctx.currentTime + 0.3);
+                        }, i * 100);
+                    });
+                };
+                playWarning();
+                if (loop) this.interval = setInterval(playWarning, 1200);
+            }
+
+            playNuclear(loop) {
+                const playAlert = () => {
+                    // Intense pulsing dual-tone
+                    const pulse = () => {
+                        const { osc, gain } = this.createOscGain();
+                        const { osc: osc2, gain: gain2 } = this.createOscGain();
+                        osc.type = 'sawtooth';
+                        osc2.type = 'sawtooth';
+                        osc.frequency.setValueAtTime(220, this.ctx.currentTime);
+                        osc2.frequency.setValueAtTime(330, this.ctx.currentTime);
+                        gain.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                        gain2.gain.setValueAtTime(0.3, this.ctx.currentTime);
+                        osc.start();
+                        osc2.start();
+                        osc.stop(this.ctx.currentTime + 0.2);
+                        osc2.stop(this.ctx.currentTime + 0.2);
+                    };
+                    for (let i = 0; i < 5; i++) {
+                        setTimeout(pulse, i * 250);
+                    }
+                };
+                playAlert();
+                if (loop) this.interval = setInterval(playAlert, 2000);
             }
         }
 
