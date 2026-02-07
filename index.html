@@ -1,0 +1,1753 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: light)">
+    <title>Life Guardrail | Midas Digital Sou/.utions™</title>
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="apple-touch-icon"
+        href="data:image/svg+xml,<svg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 512 512%27><rect width=%27512%27 height=%27512%27 fill=%27%23000000%27/><path d=%27M256 64L64 448h384L256 64z%27 fill=%27%23FFD700%27/></svg>">
+    <style>
+        :root {
+            --color-gold: #FFD700;
+            /* Default Accent */
+            --color-gold-dim: #DAA520;
+            --color-accent-2: #00FFFF;
+            /* Cyan */
+            --color-accent-3: #FF00FF;
+            /* Magenta */
+            --color-accent-4: #32CD32;
+            /* Lime */
+            --color-accent-5: #9370DB;
+            /* Purple */
+            --color-black: #000000;
+            --color-grey-dark: #1a1a1a;
+            --color-grey-med: #808080;
+            --color-grey-light: #CCCCCC;
+            --color-white: #FFFFFF;
+            --font-mono: 'Courier New', monospace;
+            --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--color-black);
+            color: var(--color-white);
+            font-family: var(--font-sans);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* --- UTILS --- */
+        .hidden {
+            display: none !important;
+        }
+
+        .gold-text {
+            color: var(--color-gold);
+        }
+
+        .mono-text {
+            font-family: var(--font-mono);
+        }
+
+        .flex-center {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn-reset {
+            border: none;
+            background: none;
+            cursor: pointer;
+            color: inherit;
+        }
+
+        /* --- HEADER --- */
+        header {
+            padding: 15px 20px;
+            border-bottom: 2px solid var(--color-gold);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(to bottom, #111, #000);
+            z-index: 10;
+        }
+
+        h1 {
+            font-size: 1.2rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--color-gold);
+            text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+        }
+
+        #clock {
+            font-size: 1.1rem;
+            font-weight: bold;
+        }
+
+        /* --- MAIN AREA --- */
+        main {
+            flex: 1;
+            overflow-y: auto;
+            padding: 20px;
+            position: relative;
+        }
+
+        .empty-state {
+            text-align: center;
+            margin-top: 100px;
+            color: var(--color-grey-med);
+        }
+
+        /* --- ALARM GRID --- */
+        .alarm-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 15px;
+            padding-bottom: 80px;
+            /* Space for FAB */
+        }
+
+        .alarm-card {
+            background: rgba(30, 30, 30, 0.6);
+            border: 1px solid var(--color-grey-med);
+            border-left: 4px solid var(--color-grey-med);
+            border-radius: 8px;
+            padding: 15px;
+            position: relative;
+            transition: all 0.2s ease;
+            -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+        }
+
+        .alarm-card.active {
+            border-left-color: var(--color-gold);
+            background: rgba(40, 40, 40, 0.8);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.05);
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+
+        .alarm-name {
+            font-size: 1.1rem;
+            font-weight: bold;
+            color: var(--color-white);
+        }
+
+        .alarm-details {
+            font-size: 0.85rem;
+            color: var(--color-grey-light);
+            margin-top: 5px;
+        }
+
+        .alarm-next {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: var(--color-gold);
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .alarm-controls {
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+            margin-top: 15px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            padding-top: 10px;
+        }
+
+        .icon-btn {
+            font-size: 1.2rem;
+            padding: 5px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .icon-btn:hover {
+            opacity: 1;
+            color: var(--color-gold);
+        }
+
+        .toggle-switch {
+            position: relative;
+            width: 40px;
+            height: 20px;
+        }
+
+        .toggle-input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: var(--color-grey-med);
+            transition: .4s;
+            border-radius: 20px;
+        }
+
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 16px;
+            width: 16px;
+            left: 2px;
+            bottom: 2px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+
+        .toggle-input:checked+.toggle-slider {
+            background-color: var(--color-gold);
+        }
+
+        .toggle-input:checked+.toggle-slider:before {
+            transform: translateX(20px);
+        }
+
+        /* --- COUNTDOWN BAR --- */
+        .countdown-bar-bg {
+            height: 4px;
+            background: #333;
+            margin-top: 8px;
+            border-radius: 2px;
+            overflow: hidden;
+        }
+
+        .countdown-bar-fill {
+            height: 100%;
+            background: var(--color-gold);
+            width: 0%;
+            transition: width 1s linear;
+        }
+
+        /* --- SUB-CARD --- */
+        .sub-time {
+            color: var(--color-gold-dim);
+            font-size: 0.8rem;
+            font-family: var(--font-mono);
+            letter-spacing: -0.5px;
+        }
+
+        /* --- ADD BUTTON (FAB) --- */
+        .fab {
+            position: fixed;
+            bottom: 30px;
+            right: 30px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, var(--color-gold), var(--color-gold-dim));
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.5);
+            font-size: 2rem;
+            color: black;
+            font-weight: bold;
+            z-index: 100;
+            transition: transform 0.2s;
+        }
+
+        .fab:active {
+            transform: scale(0.9);
+        }
+
+        /* --- MODAL --- */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.85);
+            z-index: 200;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            /* Mobile bottom sheet style */
+        }
+
+        @media(min-width: 768px) {
+            .modal-overlay {
+                align-items: center;
+            }
+        }
+
+        .modal-content {
+            background: #111;
+            width: 100%;
+            max-width: 500px;
+            border-top: 2px solid var(--color-gold);
+            border-radius: 15px 15px 0 0;
+            padding: 25px;
+            max-height: 90vh;
+            overflow-y: auto;
+            animation: slideUp 0.3s ease;
+        }
+
+        @media(min-width: 768px) {
+            .modal-content {
+                border-radius: 10px;
+                border: 1px solid var(--color-gold);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+
+        #close-modal {
+            color: var(--color-grey-med);
+        }
+
+        .modal-title {
+            color: var(--color-gold);
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-label {
+            display: block;
+            color: var(--color-grey-light);
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        .form-input,
+        .form-select {
+            width: 100%;
+            padding: 12px;
+            background: #222;
+            border: 1px solid #444;
+            color: white;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 1rem;
+        }
+
+        .form-input:focus {
+            border-color: var(--color-gold);
+            outline: none;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn {
+            flex: 1;
+            padding: 15px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: var(--color-gold);
+            color: black;
+        }
+
+        .btn-secondary {
+            background: #333;
+            color: white;
+        }
+
+        /* --- FILE UPLOAD --- */
+        .file-upload-btn {
+            border: 1px dashed var(--color-gold-dim);
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--color-gold-dim);
+            cursor: pointer;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+
+        .file-upload-btn:hover {
+            background: rgba(255, 215, 0, 0.1);
+        }
+
+        /* --- NOTIFICATION TOAST --- */
+        .toast {
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: var(--color-gold);
+            color: black;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-weight: bold;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+            z-index: 300;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+        }
+
+        .toast.show {
+            opacity: 1;
+        }
+
+        /* --- ALARM TRIGGERED OVERLAY --- */
+        #alarm-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.95);
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .pulse {
+            animation: pulseAnim 1.5s infinite;
+        }
+
+        @keyframes pulseAnim {
+            0% {
+                box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.7);
+            }
+
+            70% {
+                box-shadow: 0 0 0 30px rgba(255, 215, 0, 0);
+            }
+
+            100% {
+                box-shadow: 0 0 0 0 rgba(255, 215, 0, 0);
+            }
+        }
+
+        .alarm-msg {
+            font-size: 2rem;
+            color: var(--color-gold);
+            margin-bottom: 20px;
+            max-width: 80%;
+        }
+
+        .dismiss-btn {
+            background: var(--color-gold);
+            color: black;
+            padding: 20px 40px;
+            font-size: 1.2rem;
+            border-radius: 50px;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            box-shadow: 0 0 20px var(--color-gold);
+        }
+
+        .header-right {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .text-lg {
+            font-size: 1.2rem;
+        }
+
+        .wakelock-active {
+            color: var(--color-gold) !important;
+            text-shadow: 0 0 10px var(--color-gold);
+        }
+
+        .empty-hint {
+            font-size: 0.8rem;
+            margin-top: 5px;
+        }
+
+        .preview-btn {
+            padding: 8px 12px;
+            font-size: 1.2rem;
+            margin-left: 5px;
+            border-radius: 5px;
+            transition: background 0.2s;
+        }
+
+        .preview-btn:hover {
+            background: rgba(255, 215, 0, 0.2);
+        }
+
+        .sound-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .sound-row select {
+            flex: 1;
+        }
+
+        .time-row {
+            display: flex;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+
+        .week-row {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .cycle-row {
+            display: flex;
+            gap: 10px;
+        }
+
+        .mt-10 {
+            margin-top: 10px;
+        }
+
+        .file-name {
+            font-size: 0.8rem;
+            color: var(--color-gold);
+            margin-top: 5px;
+        }
+
+        .toggle-group {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #222;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .m-0 {
+            margin: 0;
+        }
+
+        .btn-delete {
+            width: 100%;
+            color: red;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .pulse-ring {
+            width: 200px;
+            height: 200px;
+            background: transparent;
+            box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.5);
+            pointer-events: none;
+            position: absolute;
+        }
+
+        .btn-snooze {
+            color: white;
+            margin-top: 30px;
+            text-decoration: underline;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <h1>Life Guardrail</h1>
+        <div class="header-right">
+            <button class="btn-reset text-lg" id="wakelock-btn" aria-label="Keep Screen On"
+                title="Keep Screen On">🔆</button>
+            <button class="btn-reset text-lg" id="theme-btn" aria-label="Change Accent">🎨</button>
+            <div id="clock" class="mono-text gold-text">12:00:00</div>
+        </div>
+    </header>
+
+    <main id="app">
+        <div id="alarm-list" class="alarm-grid">
+            <!-- Alarms injected here -->
+        </div>
+        <div id="empty-state" class="empty-state hidden">
+            <p>No Guardrails Set.</p>
+            <p class="empty-hint">Click + to fortify your schedule.</p>
+        </div>
+    </main>
+
+    <button class="btn-reset fab" id="add-btn" aria-label="Add Alarm">+</button>
+
+    <!-- EDIT/ADD MODAL -->
+    <div id="modal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title" id="modal-title">New Guardrail</div>
+                <button class="btn-reset" id="close-modal">✕</button>
+            </div>
+
+            <form id="alarm-form">
+                <input type="hidden" id="edit-id">
+
+                <div class="form-group">
+                    <label class="form-label">Title</label>
+                    <input type="text" id="inp-title" class="form-input" placeholder="e.g. Deep Work" required>
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Recurrence Type</label>
+                    <select id="inp-type" class="form-select" onchange="toggleTypeFields()"
+                        aria-label="Recurrence Type">
+                        <option value="fixed">Fixed Daily Time</option>
+                        <option value="interval">Recurring Interval</option>
+                        <option value="weekly">Weekly Custom</option>
+                        <option value="cyclic">Cyclic (Work/Rest)</option>
+                        <option value="annual">Annual Event</option>
+                    </select>
+                </div>
+
+                <!-- Type: Fixed -->
+                <div id="field-fixed" class="form-group">
+                    <label class="form-label">Time (24h)</label>
+                    <input type="time" id="inp-time" class="form-input" aria-label="Fixed Time">
+                </div>
+
+                <!-- Type: Interval -->
+                <div id="field-interval" class="form-group hidden">
+                    <label class="form-label">Run Every (Minutes)</label>
+                    <input type="number" id="inp-interval" class="form-input" min="1" placeholder="45">
+                </div>
+
+                <!-- Type: Weekly -->
+                <div id="field-weekly" class="form-group hidden">
+                    <label class="form-label">Days & Time</label>
+                    <div class="time-row">
+                        <input type="time" id="inp-weekly-time" class="form-input" aria-label="Weekly Time">
+                    </div>
+                    <div class="week-row">
+                        <label><input type="checkbox" name="day" value="1"> Mon</label>
+                        <label><input type="checkbox" name="day" value="2"> Tue</label>
+                        <label><input type="checkbox" name="day" value="3"> Wed</label>
+                        <label><input type="checkbox" name="day" value="4"> Thu</label>
+                        <label><input type="checkbox" name="day" value="5"> Fri</label>
+                    </div>
+                </div>
+
+                <!-- Type: Cyclic -->
+                <div id="field-cyclic" class="form-group hidden">
+                    <label class="form-label">Work/Rest Cycle (Days)</label>
+                    <div class="cycle-row">
+                        <input type="number" id="inp-cycle-work" class="form-input" placeholder="Work (4)" min="1"
+                            aria-label="Work Days">
+                        <input type="number" id="inp-cycle-rest" class="form-input" placeholder="Rest (2)" min="1"
+                            aria-label="Rest Days">
+                    </div>
+                    <label class="form-label mt-10">Cycle Start Date</label>
+                    <input type="date" id="inp-cycle-start" class="form-input" aria-label="Cycle Start Date">
+                </div>
+
+                <!-- Type: Annual -->
+                <div id="field-annual" class="form-group hidden">
+                    <label class="form-label">Date (No Year)</label>
+                    <input type="date" id="inp-annual-date" class="form-input" aria-label="Annual Date">
+                    <label class="form-label mt-10">Time</label>
+                    <input type="time" id="inp-annual-time" class="form-input" aria-label="Annual Time">
+                </div>
+
+                <div class="form-group">
+                    <label class="form-label">Sound</label>
+                    <div class="sound-row">
+                        <select id="inp-sound" class="form-select" aria-label="Select Sound">
+                            <option value="default">System Beep</option>
+                            <option value="synth_cyberpunk">Synth: Cyberpunk Glitch</option>
+                            <option value="synth_zen">Synth: Zen Gong</option>
+                            <option value="synth_industrial">Synth: Industrial Clank</option>
+                            <option value="synth_digital">Synth: Digital Alarm</option>
+                            <option value="synth_sonar">Synth: Sonar Ping</option>
+                            <option value="synth_klaxon">Synth: Alert Klaxon</option>
+                            <option value="synth_chiptune">Synth: Chiptune Arp</option>
+                            <option value="synth_pulse">Synth: Pulse Drone</option>
+                            <option value="synth_metalchime">Synth: Metal Chime</option>
+                            <option value="synth_synthstab">Synth: Synth Stab</option>
+                            <option value="custom">Custom Upload...</option>
+                        </select>
+                        <button type="button" id="preview-sound-btn" class="btn-reset preview-btn"
+                            aria-label="Preview Sound">🔊</button>
+                    </div>
+                    <div id="upload-container" class="hidden">
+                        <input type="file" id="inp-file" accept="audio/*" class="hidden">
+                        <div class="file-upload-btn" onclick="document.getElementById('inp-file').click()">
+                            📂 Choose Audio File
+                        </div>
+                        <div id="file-name" class="file-name"></div>
+                    </div>
+                </div>
+
+                <div class="form-group toggle-group">
+                    <label class="form-label m-0">Show Countdown Bar?</label>
+                    <label class="toggle-switch">
+                        <input type="checkbox" id="inp-countdown" class="toggle-input" aria-label="Toggle Countdown">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+
+                <div class="btn-row">
+                    <button type="button" class="btn-reset btn btn-secondary" id="cancel-btn">Cancel</button>
+                    <button type="submit" class="btn-reset btn btn-primary">Save Guardrail</button>
+                </div>
+                <button type="button" id="delete-btn" class="btn-reset hidden btn-delete">Delete Alarm</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- TRIGGER OVERLAY -->
+    <div id="alarm-overlay" class="hidden">
+        <div id="trigger-pulse" class="dismiss-btn pulse pulse-ring">
+        </div>
+        <div class="alarm-msg" id="trigger-msg">WAKE UP</div>
+        <button class="dismiss-btn" onclick="app.dismissAlarm()">DISMISS</button>
+        <button class="btn-reset btn-snooze" onclick="app.snoozeAlarm()">Snooze 10m</button>
+    </div>
+
+    <div id="toast" class="toast">Saved.</div>
+
+    <script>
+        /**
+         * LIFE GUARDRAIL ENGINE
+         * Architecture:
+         * - IndexedDB: Stores custom audio blobs.
+         * - LocalStorage: Stores alarm configurations (metadata).
+         * - App Class: Main logic controller.
+         */
+
+        // --- Audio Constants ---
+        const BEEP_B64 = "data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU";
+
+        // --- Reliability Manager: Notifications, Vibration, Wake Lock ---
+        class ReliabilityManager {
+            constructor() {
+                this.wakeLock = null;
+                this.wakeLockEnabled = false;
+                this.notificationPermission = Notification.permission;
+                this.vibrationInterval = null;
+            }
+
+            async requestNotificationPermission() {
+                if ('Notification' in window && Notification.permission === 'default') {
+                    this.notificationPermission = await Notification.requestPermission();
+                }
+                return this.notificationPermission;
+            }
+
+            showNotification(title, options = {}) {
+                if ('Notification' in window && Notification.permission === 'granted') {
+                    const notification = new Notification(title, {
+                        body: options.body || 'Alarm triggered!',
+                        icon: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect fill="%23000" width="100" height="100"/><text y="70" x="50" text-anchor="middle" font-size="60" fill="%23FFD700">⚡</text></svg>',
+                        tag: 'guardrail-alarm',
+                        requireInteraction: true,
+                        vibrate: [500, 200, 500]
+                    });
+                    notification.onclick = () => {
+                        window.focus();
+                        notification.close();
+                    };
+                    return notification;
+                }
+                return null;
+            }
+
+            startVibration() {
+                if ('vibrate' in navigator) {
+                    // Long pattern: buzz-pause-buzz-pause-buzz-pause-long buzz
+                    const pattern = [500, 200, 500, 200, 500, 200, 1000, 500];
+                    navigator.vibrate(pattern);
+                    // Repeat vibration
+                    this.vibrationInterval = setInterval(() => {
+                        navigator.vibrate(pattern);
+                    }, 4000);
+                }
+            }
+
+            stopVibration() {
+                if (this.vibrationInterval) {
+                    clearInterval(this.vibrationInterval);
+                    this.vibrationInterval = null;
+                }
+                if ('vibrate' in navigator) {
+                    navigator.vibrate(0); // Stop any ongoing vibration
+                }
+            }
+
+            async toggleWakeLock() {
+                if (this.wakeLock) {
+                    await this.releaseWakeLock();
+                    return false;
+                } else {
+                    return await this.requestWakeLock();
+                }
+            }
+
+            async requestWakeLock() {
+                if ('wakeLock' in navigator) {
+                    try {
+                        this.wakeLock = await navigator.wakeLock.request('screen');
+                        this.wakeLockEnabled = true;
+                        this.wakeLock.addEventListener('release', () => {
+                            this.wakeLock = null;
+                            this.wakeLockEnabled = false;
+                            this.updateWakeLockUI();
+                        });
+                        this.updateWakeLockUI();
+                        return true;
+                    } catch (err) {
+                        console.warn('Wake Lock failed:', err);
+                        return false;
+                    }
+                }
+                return false;
+            }
+
+            async releaseWakeLock() {
+                if (this.wakeLock) {
+                    await this.wakeLock.release();
+                    this.wakeLock = null;
+                    this.wakeLockEnabled = false;
+                    this.updateWakeLockUI();
+                }
+            }
+
+            updateWakeLockUI() {
+                const btn = document.getElementById('wakelock-btn');
+                if (btn) {
+                    btn.classList.toggle('wakelock-active', this.wakeLockEnabled);
+                    btn.title = this.wakeLockEnabled ? 'Screen will stay on' : 'Keep Screen On';
+                }
+            }
+
+            // Re-acquire wake lock when page becomes visible again
+            async handleVisibilityChange() {
+                if (document.visibilityState === 'visible' && this.wakeLockEnabled && !this.wakeLock) {
+                    await this.requestWakeLock();
+                }
+            }
+        }
+
+        class Database {
+            constructor() {
+                this.dbName = 'GuardrailAudioDB';
+                this.dbVersion = 1;
+                this.db = null;
+            }
+
+            async init() {
+                return new Promise((resolve, reject) => {
+                    const request = indexedDB.open(this.dbName, this.dbVersion);
+                    request.onerror = (e) => reject(e);
+                    request.onupgradeneeded = (e) => {
+                        const db = e.target.result;
+                        if (!db.objectStoreNames.contains('sounds')) {
+                            db.createObjectStore('sounds', { keyPath: 'id' });
+                        }
+                    };
+                    request.onsuccess = (e) => {
+                        this.db = e.target.result;
+                        resolve(this.db);
+                    };
+                });
+            }
+
+            async saveSound(id, blob) {
+                if (!this.db) await this.init();
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['sounds'], 'readwrite');
+                    const store = tx.objectStore('sounds');
+                    store.put({ id: id, blob: blob });
+                    tx.oncomplete = () => resolve();
+                    tx.onerror = (e) => reject(e);
+                });
+            }
+
+            async getSound(id) {
+                if (!this.db) await this.init();
+                return new Promise((resolve, reject) => {
+                    const tx = this.db.transaction(['sounds'], 'readonly');
+                    const store = tx.objectStore('sounds');
+                    const req = store.get(id);
+                    req.onsuccess = () => resolve(req.result ? req.result.blob : null);
+                    req.onerror = () => reject();
+                });
+            }
+        }
+
+        class App {
+            constructor() {
+                this.alarms = JSON.parse(localStorage.getItem('guardrail_alarms')) || [];
+                this.db = new Database();
+                this.reliability = new ReliabilityManager();
+                this.activeAudio = null;
+                this.triggeredAlarm = null;
+                this.now = new Date();
+                this.accents = ['#FFD700', '#00FFFF', '#FF00FF', '#32CD32', '#9370DB'];
+                this.currentAccentIdx = parseInt(localStorage.getItem('guardrail_accent')) || 0;
+
+                // Init
+                this.applyAccent();
+                this.db.init();
+                this.render();
+                this.tick();
+
+                // Request notification permission on first interaction
+                ['click', 'touchstart', 'keydown'].forEach(evt => {
+                    document.addEventListener(evt, () => {
+                                        // Unlock Audio for Mobile
+                                        if (app.synth) {
+                                            if (!app.synth.ctx) app.synth.init();
+                                            if (app.synth.ctx.state === 'suspended') {
+                                                app.synth.ctx.resume();
+                                            }
+                                        }                        // Request notification permission
+                        this.reliability.requestNotificationPermission();
+                    }, { once: true });
+                });
+
+                // Re-acquire wake lock when page becomes visible
+                document.addEventListener('visibilitychange', () => {
+                    this.reliability.handleVisibilityChange();
+                });
+
+                // Timer
+                setInterval(() => this.tick(), 1000);
+            }
+
+            tick() {
+                this.now = new Date();
+                this.updateClock();
+                this.checkAlarms();
+                // Update countdowns periodically (every tick might be heavy for DOM, but ok for < 50 alarms)
+                this.updateCountdowns();
+            }
+
+            updateClock() {
+                document.getElementById('clock').textContent = this.now.toLocaleTimeString('en-US', { hour12: false });
+            }
+
+            save() {
+                localStorage.setItem('guardrail_alarms', JSON.stringify(this.alarms));
+                this.render();
+            }
+
+            toggleAccent() {
+                this.currentAccentIdx = (this.currentAccentIdx + 1) % this.accents.length;
+                localStorage.setItem('guardrail_accent', this.currentAccentIdx);
+                this.applyAccent();
+                this.showToast('Accent Updated');
+            }
+
+            applyAccent() {
+                const color = this.accents[this.currentAccentIdx];
+                document.documentElement.style.setProperty('--color-gold', color);
+                // Dim version approximation (just sharing same color or slight opacity for simplicity in portable app)
+                document.documentElement.style.setProperty('--color-gold-dim', color);
+            }
+
+            // --- LOGIC ---
+
+            /**
+             * Calculates the next JS Date object for an alarm trigger.
+             */
+            getNextTrigger(alarm) {
+                if (!alarm.active) return null;
+
+                // Priority: Snooze
+                if (alarm.snoozeUntil) {
+                    if (alarm.snoozeUntil > Date.now()) {
+                        return new Date(alarm.snoozeUntil);
+                    } else {
+                        // Snooze execution time passed or executing now; 
+                        // Logic below should pick normal schedule if we just cleared it, 
+                        // but effectively `checkAlarms` handles the trigger.
+                    }
+                }
+
+                const now = new Date();
+                let next = new Date();
+
+                if (alarm.type === 'fixed') {
+                    // HH:MM 24h format
+                    const [h, m] = alarm.time.split(':').map(Number);
+                    next.setHours(h, m, 0, 0);
+                    if (next <= now) next.setDate(next.getDate() + 1);
+                }
+                else if (alarm.type === 'interval') {
+                    // For interval, we need a reference point. 
+                    // In a robust app, we'd store 'lastTriggered'. 
+                    // Simplified: align to next X minutes from "00:00" today? 
+                    // Or better: from 'created' timestamp. Let's use 'created' or 'lastTrigger'.
+                    const base = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(alarm.created);
+                    const intervalMs = alarm.intervalMins * 60 * 1000;
+
+                    // Add intervals until we are in future
+                    let candidate = base.getTime();
+                    while (candidate <= now.getTime()) {
+                        candidate += intervalMs;
+                    }
+                    next = new Date(candidate);
+                }
+                else if (alarm.type === 'weekly') {
+                    // days: [1, 3, 5] (Mon, Wed, Fri)
+                    const [h, m] = alarm.time.split(':').map(Number);
+                    next.setHours(h, m, 0, 0);
+
+                    // Find next valid day
+                    // Day 0 = Sun, 1 = Mon...
+                    let safeGuard = 0;
+                    while (safeGuard < 14) { // Max 2 weeks lookahead
+                        const day = next.getDay(); // 0-6
+                        const dayMapped = day === 0 ? 7 : day; // Make Sun 7 if using 1-7, or just match UI 
+                        // UI inputs: 1=Mon ... 5=Fri. Date.getDay(): 0=Sun, 1=Mon.
+                        // Let's normalize to UI (1=Mon ... 5=Fri ... 7=Sun)
+                        const uiDay = day === 0 ? 7 : day;
+
+                        if (alarm.days.includes(uiDay.toString()) && next > now) {
+                            break;
+                        }
+                        next.setDate(next.getDate() + 1);
+                        next.setHours(h, m, 0, 0); // Reset time part after day increment
+                        safeGuard++;
+                    }
+                }
+                else if (alarm.type === 'cyclic') {
+                    const cycleStart = new Date(alarm.cycleStart);
+                    cycleStart.setHours(0, 0, 0, 0); // Normalize to start of day
+
+                    const totalCycleDays = alarm.cycleWork + alarm.cycleRest;
+                    const diffDays = Math.floor((now.getTime() - cycleStart.getTime()) / (1000 * 60 * 60 * 24));
+                    const cyclePosition = diffDays % totalCycleDays;
+
+                    let daysToAdd = 0;
+                    if (cyclePosition < alarm.cycleWork) {
+                        // Currently in work phase, next trigger is tomorrow
+                        daysToAdd = 1;
+                    } else {
+                        // Currently in rest phase, next trigger is at start of next work phase
+                        daysToAdd = totalCycleDays - cyclePosition;
+                    }
+
+                    next.setDate(now.getDate() + daysToAdd);
+                    next.setHours(0, 0, 0, 0); // Trigger at start of day
+                }
+                else if (alarm.type === 'annual') {
+                    const [year, month, day] = alarm.annualDate.split('-').map(Number);
+                    const [h, m] = alarm.time.split(':').map(Number);
+
+                    next.setFullYear(now.getFullYear(), month - 1, day);
+                    next.setHours(h, m, 0, 0);
+
+                    if (next <= now) {
+                        next.setFullYear(now.getFullYear() + 1);
+                    }
+                }
+
+                return next;
+            }
+
+            checkAlarms() {
+                this.alarms.forEach(alarm => {
+                    if (!alarm.active) return;
+                    const next = this.getNextTrigger(alarm);
+                    if (next && Math.abs(next.getTime() - this.now.getTime()) < 1500) { // 1.5s tolerance
+                        // Debounce: ensure we haven't triggered this minute already
+                        const last = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(0);
+                        if (this.now.getTime() - last.getTime() > 60000) {
+                            this.trigger(alarm);
+                        }
+                    }
+                });
+            }
+
+            async trigger(alarm) {
+                console.log('TRIGGERING', alarm.title);
+                this.triggeredAlarm = alarm;
+                alarm.lastTrigger = new Date().toISOString();
+                delete alarm.snoozeUntil; // Clear snooze once triggered
+                this.save();
+
+                // UI - Show fullscreen overlay
+                document.getElementById('trigger-msg').textContent = alarm.title;
+                document.getElementById('alarm-overlay').classList.remove('hidden');
+
+                // RELIABILITY: System notification (works in background)
+                this.reliability.showNotification(alarm.title, {
+                    body: 'Life Guardrail - Tap to dismiss'
+                });
+
+                // RELIABILITY: Vibration (works even with volume down)
+                this.reliability.startVibration();
+
+                // Audio
+                if (alarm.soundId && alarm.soundId !== 'default' && !alarm.soundId.startsWith('synth_')) {
+                    const blob = await this.db.getSound(alarm.soundId);
+                    if (blob) {
+                        const url = URL.createObjectURL(blob);
+                        this.activeAudio = new Audio(url);
+                        this.activeAudio.loop = true;
+                        this.activeAudio.volume = 1.0; // Max volume
+                        this.activeAudio.play().catch(e => console.warn('Audio play failed:', e));
+                    } else {
+                        app.synth.play('beeps');
+                    }
+                } else {
+                    // Synth or Default
+                    const type = (alarm.soundId && alarm.soundId.startsWith('synth_')) ? alarm.soundId.replace('synth_', '') : 'beeps';
+                    app.synth.play(type);
+                    this.activeAudio = { stop: () => app.synth.stop() };
+                }
+            }
+
+            dismissAlarm() {
+                // Stop audio
+                if (this.activeAudio) {
+                    if (this.activeAudio.stop) this.activeAudio.stop(); // WebAudio/Synth
+                    else this.activeAudio.pause(); // HTML5 Audio
+                }
+                if (app.synth) app.synth.stop();
+
+                // RELIABILITY: Stop vibration
+                this.reliability.stopVibration();
+
+                // Hide overlay
+                document.getElementById('alarm-overlay').classList.add('hidden');
+                this.triggeredAlarm = null;
+            }
+
+            snoozeAlarm() {
+                if (!this.triggeredAlarm) return;
+
+                const id = this.triggeredAlarm.id;
+                const idx = this.alarms.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    // 10 Minutes
+                    this.alarms[idx].snoozeUntil = Date.now() + 10 * 60 * 1000;
+                    this.save();
+                    this.showToast("Snoozed 10m");
+                }
+
+                this.dismissAlarm();
+            }
+
+            // --- UI RENDERING ---
+
+            updateCountdowns() {
+                this.alarms.forEach(alarm => {
+                    if (!alarm.active || !alarm.showCountdown) return;
+                    const card = document.getElementById(`alarm-card-${alarm.id}`);
+                    if (!card) return;
+
+                    const next = this.getNextTrigger(alarm);
+                    if (!next) return;
+
+                    const diffMs = next.getTime() - new Date().getTime();
+
+                    // Visual logic: assume max bar is 1 hour (3600000ms) or use interval
+                    let maxMs = 3600000;
+                    if (alarm.type === 'interval') maxMs = alarm.intervalMins * 60 * 1000;
+                    if (alarm.type === 'cyclic') maxMs = (alarm.cycleWork + alarm.cycleRest) * 86400000;
+
+                    const pct = Math.max(0, Math.min(100, (1 - (diffMs / maxMs)) * 100));
+                    const fill = card.querySelector('.countdown-bar-fill');
+                    if (fill) fill.style.width = `${pct}%`;
+
+                    // Text update: D/H/M/S
+                    const seconds = Math.floor((diffMs / 1000) % 60);
+                    const minutes = Math.floor((diffMs / (1000 * 60)) % 60);
+                    const hours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+                    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+
+                    let timeStr = '';
+                    if (days > 0) timeStr += `${days}d `;
+                    if (hours > 0 || days > 0) timeStr += `${hours}h `;
+                    if (minutes > 0 || hours > 0 || days > 0) timeStr += `${minutes}m `;
+                    timeStr += `${seconds}s`;
+
+                    const timeSpan = card.querySelector('.sub-time');
+                    if (timeSpan) timeSpan.textContent = timeStr;
+                    if (timeSpan) timeSpan.style.color = 'var(--color-gold)';
+                });
+            }
+
+            render() {
+                const list = document.getElementById('alarm-list');
+                list.innerHTML = '';
+
+                if (this.alarms.length === 0) {
+                    document.getElementById('empty-state').classList.remove('hidden');
+                    return;
+                } else {
+                    document.getElementById('empty-state').classList.add('hidden');
+                }
+
+                this.alarms.forEach(alarm => {
+                    const el = document.createElement('div');
+                    el.className = `alarm-card ${alarm.active ? 'active' : ''}`;
+                    el.id = `alarm-card-${alarm.id}`;
+
+                    const next = this.getNextTrigger(alarm);
+                    const timeDisplay = next ? next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '--:--';
+
+                    let details = '';
+                    if (alarm.type === 'fixed') details = 'Daily';
+                    if (alarm.type === 'interval') details = `Every ${alarm.intervalMins}m`;
+                    if (alarm.type === 'weekly') details = `Weekly`;
+                    if (alarm.type === 'cyclic') details = `Cycle: ${alarm.cycleWork} On / ${alarm.cycleRest} Off`;
+                    if (alarm.type === 'annual') details = `Annual: ${alarm.annualDate}`;
+
+                    el.innerHTML = `
+                <div class="card-header">
+                    <div>
+                        <div class="alarm-name">${alarm.title}</div>
+                        <div class="alarm-details">${details}</div>
+                    </div>
+                    <label class="toggle-switch">
+                        <input type="checkbox" class="toggle-input" ${alarm.active ? 'checked' : ''} onchange="app.toggleAlarm(${alarm.id})">
+                        <span class="toggle-slider"></span>
+                    </label>
+                </div>
+                
+                <div class="alarm-next">
+                    <span style="font-size:1.2rem">🔔 ${timeDisplay}</span>
+                    <span class="sub-time">Target</span>
+                </div>
+
+                ${alarm.showCountdown ? `
+                <div class="countdown-bar-bg">
+                    <div class="countdown-bar-fill"></div>
+                </div>` : ''}
+
+                <div class="alarm-controls">
+                    <button class="btn-reset icon-btn" onclick="app.editAlarm(${alarm.id})">✏️</button>
+                    <button class="btn-reset icon-btn" onclick="app.deleteAlarm(${alarm.id})">🗑️</button>
+                </div>
+            `;
+                    list.appendChild(el);
+                });
+
+                this.updateCountdowns(); // Initial draw
+            }
+
+            // --- ACTIONS ---
+
+            toggleAlarm(id) {
+                const idx = this.alarms.findIndex(a => a.id === id);
+                if (idx !== -1) {
+                    this.alarms[idx].active = !this.alarms[idx].active;
+                    this.save();
+                }
+            }
+
+            deleteAlarm(id) {
+                if (!confirm('Delete this guardrail?')) return;
+                this.alarms = this.alarms.filter(a => a.id !== id);
+                this.save();
+            }
+
+            editAlarm(id) {
+                const alarm = this.alarms.find(a => a.id === id);
+                if (!alarm) return;
+
+                // Populate form
+                document.getElementById('edit-id').value = alarm.id;
+                document.getElementById('inp-title').value = alarm.title;
+                document.getElementById('inp-type').value = alarm.type;
+                document.getElementById('inp-countdown').checked = alarm.showCountdown;
+                document.getElementById('inp-sound').value = alarm.soundId || 'default';
+
+                toggleTypeFields(); // reset visibility
+
+                if (alarm.type === 'fixed') document.getElementById('inp-time').value = alarm.time;
+                if (alarm.type === 'interval') document.getElementById('inp-interval').value = alarm.intervalMins;
+                if (alarm.type === 'weekly') {
+                    document.getElementById('inp-weekly-time').value = alarm.time;
+                    document.querySelectorAll('input[name="day"]').forEach(cb => {
+                        cb.checked = alarm.days.includes(cb.value);
+                    });
+                }
+                if (alarm.type === 'cyclic') {
+                    document.getElementById('inp-cycle-work').value = alarm.cycleWork;
+                    document.getElementById('inp-cycle-rest').value = alarm.cycleRest;
+                    document.getElementById('inp-cycle-start').value = alarm.cycleStart;
+                }
+                if (alarm.type === 'annual') {
+                    document.getElementById('inp-annual-date').value = alarm.annualDate;
+                    document.getElementById('inp-annual-time').value = alarm.time;
+                }
+
+                // Show delete button
+                document.getElementById('delete-btn').classList.remove('hidden');
+                document.getElementById('delete-btn').onclick = () => {
+                    this.deleteAlarm(id);
+                    closeModal();
+                    this.showToast('Deleted');
+                };
+
+                openModal(`Edit ${alarm.title}`);
+            }
+
+            async saveForm() {
+                try {
+                    console.log('Saving Form...');
+                    const id = document.getElementById('edit-id').value;
+                    const isNew = !id;
+
+                    const data = {
+                        id: isNew ? Date.now() : parseInt(id),
+                        created: isNew ? new Date().toISOString() : undefined,
+                        active: true,
+                        title: document.getElementById('inp-title').value,
+                        type: document.getElementById('inp-type').value,
+                        showCountdown: document.getElementById('inp-countdown').checked,
+                        soundId: document.getElementById('inp-sound').value
+                    };
+
+                    if (!data.created) {
+                        const existing = this.alarms.find(a => a.id == id);
+                        if (existing) data.created = existing.created;
+                    }
+
+                    if (data.type === 'fixed') {
+                        data.time = document.getElementById('inp-time').value;
+                        if (!data.time) return alert('Time is required');
+                    }
+                    else if (data.type === 'interval') {
+                        data.intervalMins = parseInt(document.getElementById('inp-interval').value);
+                        if (!data.intervalMins) return alert('Interval is required');
+                    }
+                    else if (data.type === 'weekly') {
+                        data.time = document.getElementById('inp-weekly-time').value;
+                        data.days = Array.from(document.querySelectorAll('input[name="day"]:checked')).map(cb => cb.value);
+                        if (!data.days.length || !data.time) return alert('Select days and time');
+                    }
+                    else if (data.type === 'cyclic') {
+                        data.cycleWork = parseInt(document.getElementById('inp-cycle-work').value);
+                        data.cycleRest = parseInt(document.getElementById('inp-cycle-rest').value);
+                        data.cycleStart = document.getElementById('inp-cycle-start').value;
+                        if (!data.cycleWork || !data.cycleRest || !data.cycleStart) return alert('Complete cycle fields');
+                    }
+                    else if (data.type === 'annual') {
+                        data.annualDate = document.getElementById('inp-annual-date').value;
+                        data.time = document.getElementById('inp-annual-time').value;
+                        if (!data.annualDate || !data.time) return alert('Date and Time required');
+                    }
+
+                    // Handle Audio File
+                    const fileInput = document.getElementById('inp-file');
+                    if (data.soundId === 'custom' && fileInput.files.length > 0) {
+                        const file = fileInput.files[0];
+                        const soundKey = `snh_${data.id}`;
+                        await this.db.saveSound(soundKey, file);
+                        data.soundId = soundKey;
+                    } else if (data.soundId === 'custom' && !isNew) {
+                        const existing = this.alarms.find(a => a.id == id);
+                        if (existing && existing.soundId) data.soundId = existing.soundId;
+                        else data.soundId = 'default';
+                    }
+
+                    if (isNew) this.alarms.push(data);
+                    else {
+                        const idx = this.alarms.findIndex(a => a.id == parseInt(id));
+                        if (idx !== -1) this.alarms[idx] = { ...this.alarms[idx], ...data };
+                    }
+
+                    this.save();
+                    closeModal();
+                    this.showToast(isNew ? 'Guardrail Added' : 'Updated');
+                } catch (e) {
+                    console.error('Save Error:', e);
+                    alert('Error saving: ' + e.message);
+                }
+            }
+
+            showToast(msg) {
+                const t = document.getElementById('toast');
+                t.textContent = msg;
+                t.classList.add('show');
+                setTimeout(() => t.classList.remove('show'), 2000);
+            }
+        }
+
+        class SoundSynthesizer {
+            constructor() {
+                this.ctx = null;
+                this.masterGain = null;
+                this.osc = null;
+                this.interval = null;
+                this.previewTimeout = null;
+            }
+
+            init() {
+                if (!this.ctx) {
+                    this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    // Master gain for maximum volume
+                    this.masterGain = this.ctx.createGain();
+                    this.masterGain.gain.value = 2.0; // Boost audio above normal
+                    this.masterGain.connect(this.ctx.destination);
+                }
+            }
+
+            stop() {
+                if (this.osc) { try { this.osc.stop(); } catch (e) { } this.osc = null; }
+                if (this.interval) { clearInterval(this.interval); this.interval = null; }
+                if (this.previewTimeout) { clearTimeout(this.previewTimeout); this.previewTimeout = null; }
+            }
+
+            play(type, loop = true) {
+                this.init();
+                this.stop();
+                if (this.ctx.state === 'suspended') this.ctx.resume();
+
+                const soundMap = {
+                    'cyberpunk': () => this.playCyberpunk(loop),
+                    'zen': () => this.playZen(loop),
+                    'industrial': () => this.playIndustrial(loop),
+                    'digital': () => this.playDigital(loop),
+                    'sonar': () => this.playSonar(loop),
+                    'klaxon': () => this.playKlaxon(loop),
+                    'chiptune': () => this.playChiptune(loop),
+                    'pulse': () => this.playPulse(loop),
+                    'metalchime': () => this.playMetalChime(loop),
+                    'synthstab': () => this.playSynthStab(loop)
+                };
+
+                const playFn = soundMap[type] || (() => this.playBeeps(loop));
+                playFn();
+            }
+
+            preview(type) {
+                this.play(type, false);
+                // Stop after 2 seconds
+                this.previewTimeout = setTimeout(() => this.stop(), 2000);
+            }
+
+            createOscGain() {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                return { osc, gain };
+            }
+
+            playCyberpunk(loop) {
+                const playSwipe = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(50, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(100, this.ctx.currentTime + 0.5);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+                };
+                playSwipe();
+                if (loop) this.interval = setInterval(playSwipe, 1000);
+            }
+
+            playZen(loop) {
+                const playGong = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.6, this.ctx.currentTime + 0.1);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 2.5);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 3);
+                };
+                playGong();
+                if (loop) this.interval = setInterval(playGong, 3500);
+            }
+
+            playIndustrial(loop) {
+                const playClank = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(100, this.ctx.currentTime);
+                    osc.frequency.linearRampToValueAtTime(50, this.ctx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.2);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.2);
+                };
+                playClank();
+                if (loop) this.interval = setInterval(playClank, 500);
+            }
+
+            playDigital(loop) {
+                const playBeep = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.1);
+                };
+                playBeep();
+                setTimeout(playBeep, 150);
+                if (loop) this.interval = setInterval(() => {
+                    playBeep();
+                    setTimeout(playBeep, 150);
+                }, 1000);
+            }
+
+            playBeeps(loop) {
+                const playShot = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.frequency.setValueAtTime(600, this.ctx.currentTime);
+                    osc.type = 'triangle';
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+                };
+                playShot();
+                if (loop) this.interval = setInterval(playShot, 1500);
+            }
+
+            // === NEW SOUNDS ===
+
+            playSonar(loop) {
+                // Submarine ping - clean sine with quick decay
+                const playPing = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(1200, this.ctx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(800, this.ctx.currentTime + 0.3);
+                    gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.8);
+                };
+                playPing();
+                if (loop) this.interval = setInterval(playPing, 2000);
+            }
+
+            playKlaxon(loop) {
+                // Emergency siren - alternating high/low
+                let high = true;
+                const playSiren = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(high ? 800 : 600, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.35, this.ctx.currentTime + 0.4);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.5);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.5);
+                    high = !high;
+                };
+                playSiren();
+                if (loop) this.interval = setInterval(playSiren, 500);
+            }
+
+            playChiptune(loop) {
+                // 8-bit ascending arpeggio
+                const notes = [262, 330, 392, 523]; // C4, E4, G4, C5
+                let noteIdx = 0;
+                const playNote = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(notes[noteIdx], this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0.15, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                    noteIdx = (noteIdx + 1) % notes.length;
+                };
+                playNote();
+                if (loop) this.interval = setInterval(playNote, 150);
+            }
+
+            playPulse(loop) {
+                // Deep pulsing drone for meditation
+                const playDrone = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(80, this.ctx.currentTime);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.5, this.ctx.currentTime + 1);
+                    gain.gain.linearRampToValueAtTime(0, this.ctx.currentTime + 2);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 2);
+                };
+                playDrone();
+                if (loop) this.interval = setInterval(playDrone, 2500);
+            }
+
+            playMetalChime(loop) {
+                // Metallic bell with harmonics
+                const playChime = () => {
+                    // Fundamental
+                    const { osc: osc1, gain: gain1 } = this.createOscGain();
+                    osc1.type = 'sine';
+                    osc1.frequency.setValueAtTime(880, this.ctx.currentTime);
+                    gain1.gain.setValueAtTime(0.4, this.ctx.currentTime);
+                    gain1.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 1.5);
+                    osc1.start();
+                    osc1.stop(this.ctx.currentTime + 1.5);
+
+                    // Harmonic
+                    const { osc: osc2, gain: gain2 } = this.createOscGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(1760, this.ctx.currentTime);
+                    gain2.gain.setValueAtTime(0.2, this.ctx.currentTime);
+                    gain2.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.8);
+                    osc2.start();
+                    osc2.stop(this.ctx.currentTime + 0.8);
+                };
+                playChime();
+                if (loop) this.interval = setInterval(playChime, 2000);
+            }
+
+            playSynthStab(loop) {
+                // Sharp synth hit - attention grabber
+                const playStab = () => {
+                    const { osc, gain } = this.createOscGain();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(440, this.ctx.currentTime);
+                    osc.frequency.setValueAtTime(880, this.ctx.currentTime + 0.02);
+                    gain.gain.setValueAtTime(0.5, this.ctx.currentTime);
+                    gain.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(this.ctx.currentTime + 0.15);
+                };
+                playStab();
+                setTimeout(playStab, 100);
+                setTimeout(playStab, 200);
+                if (loop) this.interval = setInterval(() => {
+                    playStab();
+                    setTimeout(playStab, 100);
+                    setTimeout(playStab, 200);
+                }, 1500);
+            }
+        }
+
+        // --- DOM BINDINGS ---
+        const app = new App();
+        app.synth = new SoundSynthesizer();
+        window.app = app; // Expos for inline onclicks
+
+        document.getElementById('add-btn').onclick = () => {
+            document.getElementById('alarm-form').reset();
+            document.getElementById('edit-id').value = '';
+            document.getElementById('delete-btn').classList.add('hidden');
+            toggleTypeFields();
+            openModal('New Guardrail');
+        };
+
+        document.getElementById('theme-btn').onclick = () => app.toggleAccent();
+
+        document.getElementById('close-modal').onclick = closeModal;
+        document.getElementById('cancel-btn').onclick = closeModal;
+
+        document.getElementById('alarm-form').onsubmit = (e) => {
+            e.preventDefault();
+            app.saveForm();
+        };
+
+        document.getElementById('inp-sound').onchange = (e) => {
+            document.getElementById('upload-container').className = e.target.value === 'custom' ? '' : 'hidden';
+        };
+
+        document.getElementById('inp-file').onchange = (e) => {
+            if (e.target.files[0]) document.getElementById('file-name').textContent = e.target.files[0].name;
+        };
+
+        // Wake Lock toggle
+        document.getElementById('wakelock-btn').onclick = async () => {
+            const enabled = await app.reliability.toggleWakeLock();
+            app.showToast(enabled ? 'Screen will stay on' : 'Screen lock enabled');
+        };
+
+        // Sound preview button
+        document.getElementById('preview-sound-btn').onclick = () => {
+            const soundValue = document.getElementById('inp-sound').value;
+            if (soundValue === 'custom') {
+                app.showToast('Upload a file first');
+                return;
+            }
+            const type = soundValue.startsWith('synth_') ? soundValue.replace('synth_', '') : 'beeps';
+            app.synth.preview(type);
+        };
+
+        // Utils
+        function openModal(title) {
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal').classList.remove('hidden');
+        }
+        function closeModal() {
+            document.getElementById('modal').classList.add('hidden');
+        }
+        function toggleTypeFields() {
+            const type = document.getElementById('inp-type').value;
+            document.getElementById('field-fixed').classList.add('hidden');
+            document.getElementById('field-interval').classList.add('hidden');
+            document.getElementById('field-weekly').classList.add('hidden');
+            document.getElementById('field-cyclic').classList.add('hidden');
+            document.getElementById('field-annual').classList.add('hidden');
+
+            document.getElementById(`field-${type}`).classList.remove('hidden');
+        }
+
+        // Register Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then((reg) => console.log('SW registered:', reg.scope))
+                    .catch((err) => console.log('SW registration failed:', err));
+            });
+        }
+
+    </script>
+
+    <!-- Invisible visitor tracking -->
+    <img src="https://hits.sh/midas82.github.io/life-guardrail.svg" alt="" style="display:none;">
+
+</body>
+
+</html>
