@@ -713,8 +713,22 @@
 
                 <!-- Type: Interval -->
                 <div id="field-interval" class="form-group hidden">
-                    <label class="form-label">Run Every (Minutes)</label>
-                    <input type="number" id="inp-interval" class="form-input" min="1" placeholder="45">
+                    <label class="form-label">Start Time</label>
+                    <input type="time" id="inp-interval-start-time" class="form-input" aria-label="Interval Start Time">
+                    <p style="font-size: 0.8rem; color: #999; margin-top: 5px;">When should the interval start?</p>
+
+                    <label class="form-label" style="margin-top: 15px;">Repeat Every</label>
+                    <div style="display: flex; gap: 10px;">
+                        <input type="number" id="inp-interval-value" class="form-input" min="1" placeholder="45" aria-label="Interval Value" style="flex: 1;">
+                        <select id="inp-interval-unit" class="form-select" aria-label="Interval Unit" style="flex: 1; min-width: 100px;">
+                            <option value="minutes">Minutes</option>
+                            <option value="hours">Hours</option>
+                            <option value="days">Days</option>
+                            <option value="months">Months</option>
+                            <option value="year">Once a Year</option>
+                        </select>
+                    </div>
+                    <p style="font-size: 0.8rem; color: #999; margin-top: 5px;">Example: Every 45 minutes, Every 2 hours, Every 3 days</p>
                 </div>
 
                 <!-- Type: Weekly -->
@@ -1164,15 +1178,48 @@
                     }
                 }
                 else if (alarm.type === 'interval') {
-                    // Base calculation
-                    const base = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(alarm.created);
-                    const intervalMs = alarm.intervalMins * 60 * 1000;
-                    
-                    // Add intervals
+                    // Determine base time for calculation
+                    let base;
+                    if (alarm.intervalStartTime) {
+                        // New format: use specified start time
+                        base = new Date();
+                        const [h, m] = alarm.intervalStartTime.split(':').map(Number);
+                        base.setHours(h, m, 0, 0);
+
+                        // If start time is in the past today, use that as base
+                        if (base < new Date()) {
+                            // Start time already passed today
+                        } else {
+                            // Start time is in the future today, use yesterday's time
+                            base.setDate(base.getDate() - 1);
+                        }
+                    } else {
+                        // Old format: calculate from created or lastTrigger
+                        base = alarm.lastTrigger ? new Date(alarm.lastTrigger) : new Date(alarm.created);
+                    }
+
+                    // Calculate interval in milliseconds
+                    let intervalMs;
+                    if (alarm.intervalUnit) {
+                        // New format with units
+                        const value = alarm.intervalValue;
+                        switch(alarm.intervalUnit) {
+                            case 'minutes': intervalMs = value * 60 * 1000; break;
+                            case 'hours': intervalMs = value * 60 * 60 * 1000; break;
+                            case 'days': intervalMs = value * 24 * 60 * 60 * 1000; break;
+                            case 'months': intervalMs = value * 30 * 24 * 60 * 60 * 1000; break;
+                            case 'year': intervalMs = 365 * 24 * 60 * 60 * 1000; break;
+                            default: intervalMs = alarm.intervalMins * 60 * 1000;
+                        }
+                    } else {
+                        // Old format: intervalMins in minutes
+                        intervalMs = alarm.intervalMins * 60 * 1000;
+                    }
+
+                    // Calculate next occurrence
                     let candidate = base.getTime();
-                    // If including grace period, we want the LAST interval that is either future or within grace
                     const threshold = now.getTime() - GRACE_MS;
-                    
+
                     while (candidate <= threshold) {
                         candidate += intervalMs;
                     }
@@ -1378,7 +1425,22 @@
                     // Visual logic: determine max time window based on alarm type
                     let maxMs = 3600000; // Default 1 hour (fallback)
                     if (alarm.type === 'fixed') maxMs = 24 * 60 * 60 * 1000; // 24 hours
-                    if (alarm.type === 'interval') maxMs = alarm.intervalMins * 60 * 1000;
+                    if (alarm.type === 'interval') {
+                        if (alarm.intervalUnit) {
+                            // New format with units
+                            const value = alarm.intervalValue;
+                            switch(alarm.intervalUnit) {
+                                case 'minutes': maxMs = value * 60 * 1000; break;
+                                case 'hours': maxMs = value * 60 * 60 * 1000; break;
+                                case 'days': maxMs = value * 24 * 60 * 60 * 1000; break;
+                                case 'months': maxMs = value * 30 * 24 * 60 * 60 * 1000; break;
+                                case 'year': maxMs = 365 * 24 * 60 * 60 * 1000; break;
+                            }
+                        } else {
+                            // Old format
+                            maxMs = alarm.intervalMins * 60 * 1000;
+                        }
+                    }
                     if (alarm.type === 'weekly') maxMs = 7 * 24 * 60 * 60 * 1000; // 7 days
                     if (alarm.type === 'cyclic') maxMs = (alarm.cycleWork + alarm.cycleRest) * 24 * 60 * 60 * 1000;
                     if (alarm.type === 'annual') maxMs = 365 * 24 * 60 * 60 * 1000; // 365 days
@@ -1426,7 +1488,16 @@
 
                     let details = '';
                     if (alarm.type === 'fixed') details = 'Daily';
-                    if (alarm.type === 'interval') details = `Every ${alarm.intervalMins}m`;
+                    if (alarm.type === 'interval') {
+                        if (alarm.intervalUnit) {
+                            // New format
+                            const unitText = alarm.intervalUnit === 'year' ? 'Yearly' : `Every ${alarm.intervalValue} ${alarm.intervalUnit}`;
+                            details = `${unitText} @ ${alarm.intervalStartTime}`;
+                        } else {
+                            // Old format
+                            details = `Every ${alarm.intervalMins}m`;
+                        }
+                    }
                     if (alarm.type === 'weekly') details = `Weekly`;
                     if (alarm.type === 'cyclic') details = `Cycle: ${alarm.cycleWork} On / ${alarm.cycleRest} Off`;
                     if (alarm.type === 'annual') details = `Annual: ${alarm.annualDate}`;
@@ -1495,7 +1566,28 @@
                 toggleTypeFields(); // reset visibility
 
                 if (alarm.type === 'fixed') document.getElementById('inp-time').value = alarm.time;
-                if (alarm.type === 'interval') document.getElementById('inp-interval').value = alarm.intervalMins;
+                if (alarm.type === 'interval') {
+                    // Load new format if available, fall back to old format
+                    if (alarm.intervalUnit) {
+                        document.getElementById('inp-interval-value').value = alarm.intervalValue;
+                        document.getElementById('inp-interval-unit').value = alarm.intervalUnit;
+                        document.getElementById('inp-interval-start-time').value = alarm.intervalStartTime || '00:00';
+                    } else {
+                        // Backward compatibility: convert old intervalMins to hours
+                        const mins = alarm.intervalMins || 0;
+                        if (mins % (24 * 60) === 0) {
+                            document.getElementById('inp-interval-value').value = mins / (24 * 60);
+                            document.getElementById('inp-interval-unit').value = 'days';
+                        } else if (mins % 60 === 0) {
+                            document.getElementById('inp-interval-value').value = mins / 60;
+                            document.getElementById('inp-interval-unit').value = 'hours';
+                        } else {
+                            document.getElementById('inp-interval-value').value = mins;
+                            document.getElementById('inp-interval-unit').value = 'minutes';
+                        }
+                        document.getElementById('inp-interval-start-time').value = '00:00';
+                    }
+                }
                 if (alarm.type === 'weekly') {
                     document.getElementById('inp-weekly-time').value = alarm.time;
                     document.querySelectorAll('input[name="day"]').forEach(cb => {
@@ -1559,9 +1651,24 @@
                         if (!data.time) return alert('Time is required');
                     }
                     else if (data.type === 'interval') {
-                        data.intervalMins = parseInt(document.getElementById('inp-interval').value);
-                        if (!data.intervalMins || data.intervalMins < 1) return alert('Interval must be at least 1 minute');
-                        if (data.intervalMins > 525600) return alert('Interval cannot exceed 1 year (525600 minutes)');
+                        data.intervalValue = parseInt(document.getElementById('inp-interval-value').value);
+                        data.intervalUnit = document.getElementById('inp-interval-unit').value;
+                        data.intervalStartTime = document.getElementById('inp-interval-start-time').value || '00:00';
+
+                        if (!data.intervalValue || data.intervalValue < 1) return alert('Interval value must be at least 1');
+                        if (data.intervalValue > 999) return alert('Interval value cannot exceed 999');
+
+                        // Validate based on unit
+                        if (data.intervalUnit === 'year' && data.intervalValue !== 1) {
+                            return alert('For "Once a Year", use 1');
+                        }
+
+                        // For backward compatibility, also set intervalMins
+                        if (data.intervalUnit === 'minutes') data.intervalMins = data.intervalValue;
+                        else if (data.intervalUnit === 'hours') data.intervalMins = data.intervalValue * 60;
+                        else if (data.intervalUnit === 'days') data.intervalMins = data.intervalValue * 24 * 60;
+                        else if (data.intervalUnit === 'months') data.intervalMins = data.intervalValue * 30 * 24 * 60;
+                        else if (data.intervalUnit === 'year') data.intervalMins = 365 * 24 * 60;
                     }
                     else if (data.type === 'weekly') {
                         data.time = document.getElementById('inp-weekly-time').value;
